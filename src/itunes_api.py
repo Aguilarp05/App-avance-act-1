@@ -7,7 +7,7 @@ from src.utils import best_match
 SEARCH_URL = "https://itunes.apple.com/search"
 
 
-def search_track(artist: str, song: str, country: str = "US", limit: int = 5):
+def search_track(artist: str, song: str, country: str = "US", limit: int = 15):
     """Busca la cancion en iTunes y regresa el resultado que mejor
     coincide con artista+cancion, o None si no hay nada aceptable."""
     params = {

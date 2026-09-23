@@ -11,7 +11,7 @@ from src.config import (
     COL_VALENCE, COL_YEAR, SLEEP_BETWEEN_CALLS,
 )
 from src.language_detect import detect_language
-from src.utils import sanitize_filename
+from src.utils import normalize_query_text, sanitize_filename
 
 
 def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict:
@@ -23,16 +23,22 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
     ]}
     notes = []
 
+    # Limpia apostrofes raros (´ en vez de ') ANTES de buscar en
+    # cualquier API - varios titulos del Excel los traen y eso hacia
+    # fallar la busqueda aunque la cancion si existiera.
+    artist = normalize_query_text(artist)
+    song = normalize_query_text(song)
+
+    # Artista/cancion "limpios" para las busquedas siguientes: si iTunes
+    # (o, en su defecto, ReccoBeats) encuentra un match CONFIABLE
+    # (>=80%), se usa el nombre oficial que confirmo en vez del texto
+    # crudo del Excel. Si ninguno confia, se sigue usando el texto
+    # original, para no propagar un error a las demas fuentes.
+    search_artist, search_song = artist, song
+
     # --- iTunes: metadata basica ---
     itunes_track, itunes_score = itunes_api.search_track(artist, song)
     time.sleep(SLEEP_BETWEEN_CALLS)
-    # Artista/cancion "limpios" para las busquedas siguientes: si iTunes
-    # encontro un match CONFIABLE (>=80%), se usa el nombre oficial que
-    # el confirmo en vez del texto crudo del Excel (que a veces trae
-    # typos/comillas raras que hacen fallar la busqueda en otras APIs).
-    # Si el match de iTunes fue dudoso o no encontro nada, se sigue
-    # usando el texto original tal cual, para no propagar un error.
-    search_artist, search_song = artist, song
     if itunes_track:
         fields = itunes_api.extract_fields(itunes_track)
         result[COL_YEAR] = fields.get("year")
@@ -50,6 +56,13 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
     recco_track, recco_score = reccobeats_api.search_track(search_artist, search_song)
     time.sleep(SLEEP_BETWEEN_CALLS)
     if recco_track:
+        # Si iTunes no dio un nombre oficial confiable pero ReccoBeats si
+        # encontro la cancion con confianza, tambien sirve como fuente
+        # de nombre "limpio" para GetSongBPM/LRCLIB mas adelante.
+        if search_artist == artist and recco_score >= 80:
+            artists_str = ", ".join(a.get("name", "") for a in recco_track.get("artists", []))
+            search_artist = artists_str or artist
+            search_song = recco_track.get("trackTitle") or song
         features = reccobeats_api.get_audio_features(recco_track["id"])
         time.sleep(SLEEP_BETWEEN_CALLS)
         fields = reccobeats_api.extract_fields(features)
@@ -109,14 +122,6 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
             notes.append(f"LRCLIB: match dudoso ({lyrics_score:.0f}%)")
     else:
         notes.append("LRCLIB: letra no encontrada")
-
-    # Compas: si ninguna fuente lo dio (GetSongBPM es la unica que lo
-    # tiene y su catalogo es chico), se asume "4/4" -- es el compas de
-    # ~85-90% de la musica comercial pop/rock/latina. Se marca claro
-    # como asumido, no como dato confirmado por una API.
-    if result[COL_TIME_SIG] is None:
-        result[COL_TIME_SIG] = "4/4 (asumido)"
-        notes.append("Compas: asumido 4/4 (no confirmado por GetSongBPM)")
 
     # Popularity: se probo Spotify (Client Credentials Y login de usuario
     # real via OAuth) y confirmamos que ya no expone ese campo para apps

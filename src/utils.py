@@ -14,6 +14,23 @@ def strip_accents(text: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
+# Caracteres que a veces se usan por error en vez de un apostrofe recto
+# (comun en textos copiados de Word/Notas/iOS: "Let´s", "I Don´t",
+# "Isn´t"). Si se dejan asi, las busquedas en las APIs no encuentran
+# nada aunque la cancion exista, porque el titulo real usa "'".
+_APOSTROPHE_LOOKALIKES = "´`’‘"
+
+
+def normalize_query_text(text: str) -> str:
+    """Limpia un texto ANTES de mandarlo a buscar a cualquier API:
+    normaliza apostrofes raros a uno recto y colapsa espacios."""
+    if not text:
+        return ""
+    for ch in _APOSTROPHE_LOOKALIKES:
+        text = text.replace(ch, "'")
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def sanitize_filename(text: str, max_len: int = 80) -> str:
     """Convierte un string en un nombre de archivo seguro."""
     text = strip_accents(text)
