@@ -5,6 +5,11 @@ canción`) y llena automaticamente el resto de las columnas usando 4 APIs
 gratuitas: **iTunes Search**, **ReccoBeats**, [GetSongBPM](https://getsongbpm.com)
 y **LRCLIB**.
 
+`Popularity` se queda vacio a proposito: se intento con Spotify (tanto
+Client Credentials como login real de usuario via OAuth) y confirmamos
+que ya no expone ese campo para apps nuevas en ninguno de los dos
+casos, asi que no vale la pena mantener esa integracion.
+
 > Datos de tempo/tonalidad de cancion proporcionados por [GetSongBPM.com](https://getsongbpm.com).
 
 ## 1. Instalar (una sola vez)
@@ -76,7 +81,7 @@ filas a mano.
 | Volumen en db | ReccoBeats | `loudness` |
 | Modo de la canción | ReccoBeats (respaldo: GetSongBPM) | Mayor / Menor |
 | Danceability, Valance, Energy, Acousticiness, Instrumenalness, liveness, speechiness | ReccoBeats | valores 0-1 |
-| Popularity | **ninguna de las 4 APIs la ofrece** | queda en blanco a proposito (Spotify la descontinuo para apps nuevas) |
+| Popularity | **ninguna fuente disponible** | queda en blanco a proposito; se intento con Spotify (Client Credentials y OAuth de usuario) y ya no expone ese campo para apps nuevas |
 | Genre | iTunes | |
 | Lyrics | LRCLIB | letra completa se guarda en `letras/`, aqui solo queda la ruta + primera linea |
 | Lenguage | Detectado del texto de la letra (libreria `langdetect`) | ninguna API da idioma directo |

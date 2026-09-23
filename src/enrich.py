@@ -100,9 +100,11 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
     else:
         notes.append("LRCLIB: letra no encontrada")
 
-    # Popularity: ninguna de las 4 APIs la ofrece (Spotify la descontinuo
-    # para apps nuevas). Se deja en blanco a proposito.
-    notes.append("Popularity: no disponible en estas 4 APIs (dejar manual)")
+    # Popularity: se probo Spotify (Client Credentials Y login de usuario
+    # real via OAuth) y confirmamos que ya no expone ese campo para apps
+    # nuevas en ninguno de los dos casos. Ninguna de las 4 APIs originales
+    # lo tiene tampoco. Se deja en blanco a proposito.
+    notes.append("Popularity: no disponible (Spotify ya no expone ese campo para apps nuevas)")
 
     result[COL_NOTES] = " | ".join(notes)
     return result
