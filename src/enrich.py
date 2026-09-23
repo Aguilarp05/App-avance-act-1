@@ -26,6 +26,13 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
     # --- iTunes: metadata basica ---
     itunes_track, itunes_score = itunes_api.search_track(artist, song)
     time.sleep(SLEEP_BETWEEN_CALLS)
+    # Artista/cancion "limpios" para las busquedas siguientes: si iTunes
+    # encontro un match CONFIABLE (>=80%), se usa el nombre oficial que
+    # el confirmo en vez del texto crudo del Excel (que a veces trae
+    # typos/comillas raras que hacen fallar la busqueda en otras APIs).
+    # Si el match de iTunes fue dudoso o no encontro nada, se sigue
+    # usando el texto original tal cual, para no propagar un error.
+    search_artist, search_song = artist, song
     if itunes_track:
         fields = itunes_api.extract_fields(itunes_track)
         result[COL_YEAR] = fields.get("year")
@@ -33,11 +40,14 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
         result[COL_GENRE] = fields.get("genre")
         if itunes_score < 80:
             notes.append(f"iTunes: match dudoso ({itunes_score:.0f}%)")
+        else:
+            search_artist = fields.get("itunes_artist") or artist
+            search_song = fields.get("itunes_track") or song
     else:
         notes.append("iTunes: no encontrado")
 
     # --- ReccoBeats: audio features (fuente principal de BPM/modo/etc) ---
-    recco_track, recco_score = reccobeats_api.search_track(artist, song)
+    recco_track, recco_score = reccobeats_api.search_track(search_artist, search_song)
     time.sleep(SLEEP_BETWEEN_CALLS)
     if recco_track:
         features = reccobeats_api.get_audio_features(recco_track["id"])
@@ -60,7 +70,7 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
 
     # --- GetSongBPM: BPM/compas/modo de respaldo (compas SOLO sale de aqui) ---
     if getsongbpm_api.is_enabled():
-        gsbpm = getsongbpm_api.search_song(artist, song)
+        gsbpm = getsongbpm_api.search_song(search_artist, search_song)
         time.sleep(SLEEP_BETWEEN_CALLS)
         if gsbpm:
             fields = getsongbpm_api.extract_fields(gsbpm)
@@ -79,7 +89,7 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
         notes.append("GetSongBPM: sin API key (Compas no se pudo llenar)")
 
     # --- LRCLIB: letra + idioma ---
-    lyrics_result, lyrics_score = lrclib_api.search_lyrics(artist, song)
+    lyrics_result, lyrics_score = lrclib_api.search_lyrics(search_artist, search_song)
     time.sleep(SLEEP_BETWEEN_CALLS)
     if lyrics_result:
         fields = lrclib_api.extract_fields(lyrics_result)
@@ -99,6 +109,14 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
             notes.append(f"LRCLIB: match dudoso ({lyrics_score:.0f}%)")
     else:
         notes.append("LRCLIB: letra no encontrada")
+
+    # Compas: si ninguna fuente lo dio (GetSongBPM es la unica que lo
+    # tiene y su catalogo es chico), se asume "4/4" -- es el compas de
+    # ~85-90% de la musica comercial pop/rock/latina. Se marca claro
+    # como asumido, no como dato confirmado por una API.
+    if result[COL_TIME_SIG] is None:
+        result[COL_TIME_SIG] = "4/4 (asumido)"
+        notes.append("Compas: asumido 4/4 (no confirmado por GetSongBPM)")
 
     # Popularity: se probo Spotify (Client Credentials Y login de usuario
     # real via OAuth) y confirmamos que ya no expone ese campo para apps
