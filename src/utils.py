@@ -23,27 +23,47 @@ def sanitize_filename(text: str, max_len: int = 80) -> str:
 
 
 def similarity(a: str, b: str) -> float:
-    """Score de parecido 0-100 entre dos strings, insensible a mayus/acentos."""
+    """Score de parecido 0-100 entre dos strings, insensible a mayus/acentos.
+
+    Usa WRatio (rapidfuzz) en vez de un simple token_sort_ratio porque
+    maneja mucho mejor los casos de "artista principal + featuring"
+    (ej. 'Morat' vs 'Morat & Silvestre Dangond' -> ~90) sin dejar de
+    castigar fuerte artistas que de plano no tienen nada que ver
+    (ej. 'Humbe' vs 'Chino & Nacho' -> ~26)."""
     a = strip_accents(str(a or "")).lower().strip()
     b = strip_accents(str(b or "")).lower().strip()
     if not a or not b:
         return 0.0
-    return fuzz.token_sort_ratio(a, b)
+    return fuzz.WRatio(a, b)
+
+
+# Si el artista del mejor candidato no llega a este parecido, se
+# considera que NO es la misma cancion (aunque el titulo si matchee) y
+# se descarta en vez de rellenar datos de otro artista homonimo.
+# Calibrado con casos reales: 'Morat' vs 'Morat & Silvestre Dangond' ~90
+# (se acepta) contra 'Humbe' vs 'Chino & Nacho' ~26 (se rechaza).
+MIN_ARTIST_SCORE = 45
 
 
 def best_match(target_artist: str, target_song: str, candidates, get_artist, get_song):
     """
     Recibe una lista de candidatos y funciones para extraer artista/cancion
     de cada uno. Regresa (mejor_candidato, score) combinando el parecido
-    de artista + cancion, o (None, 0) si la lista esta vacia.
+    de artista + cancion, o (None, 0) si ningun candidato tiene un artista
+    lo bastante parecido (evita quedarse con una cancion de otro artista
+    que solo comparte titulo).
     """
     best = None
     best_score = -1.0
     for c in candidates:
         s_artist = similarity(target_artist, get_artist(c))
+        if s_artist < MIN_ARTIST_SCORE:
+            continue  # otro artista homonimo en el titulo, no es la cancion
         s_song = similarity(target_song, get_song(c))
         score = (s_artist * 0.5) + (s_song * 0.5)
         if score > best_score:
             best_score = score
             best = c
+    if best is None:
+        return None, 0
     return best, best_score

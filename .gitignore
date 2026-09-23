@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+
+# Datos conseguidos al correr el script (letras + excel enriquecido).
+# Se generan localmente con `python main.py`, no se suben para no
+# hacer pesado el repo. El repo es la herramienta, no los resultados.
+letras/*.txt
+output/*.xlsx
+output/~$*.xlsx

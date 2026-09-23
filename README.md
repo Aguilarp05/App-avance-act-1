@@ -43,6 +43,11 @@ python main.py
 Esto crea `output/Avance Actividad 1_enriquecido.xlsx` con todas las
 columnas llenas, y una carpeta `letras/` con un `.txt` por cancion.
 
+> `letras/` y `output/*.xlsx` estan en `.gitignore` a proposito: el repo
+> es la herramienta, no los resultados (letras completas de 100+
+> canciones hacen el repo pesado). Se generan localmente corriendo el
+> script, cada quien tiene los suyos.
+
 Para probar rapido con pocas canciones primero:
 ```bash
 python main.py --limit 5

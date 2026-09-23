@@ -86,9 +86,22 @@ def extract_fields(song: dict) -> dict:
         key_of = str(key_of)
         modo = "Menor" if key_of.strip().lower().endswith("m") else "Mayor"
 
+    # GetSongBPM da danceability/acousticness en escala 0-100; se pasan
+    # a 0-1 para que combinen con la escala que usa ReccoBeats.
+    def pct_to_ratio(key):
+        val = _first_present(song, [key])
+        if val is None:
+            return None
+        try:
+            return round(float(val) / 100, 3)
+        except (TypeError, ValueError):
+            return None
+
     return {
         "bpm": bpm,
         "time_sig": time_sig,
+        "danceability": pct_to_ratio("danceability"),
+        "acousticness": pct_to_ratio("acousticness"),
         "mode": modo,
         "key_of_raw": key_of,
     }

@@ -12,6 +12,7 @@ import argparse
 import glob
 import os
 import sys
+import time
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -27,6 +28,23 @@ load_dotenv()
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 LETRAS_DIR = os.path.join(PROJECT_DIR, "letras")
+
+
+def safe_save(df, output_path, retries=6, wait_seconds=10):
+    """Guarda el Excel. Si esta abierto en Excel (PermissionError), espera
+    y reintenta en vez de tumbar toda la corrida. Avisa que hay que cerrarlo."""
+    for attempt in range(1, retries + 1):
+        try:
+            df.to_excel(output_path, index=False)
+            return True
+        except PermissionError:
+            print(
+                f"\nNo pude guardar '{output_path}' porque esta abierto en Excel. "
+                f"Cierralo. Reintento {attempt}/{retries} en {wait_seconds}s..."
+            )
+            time.sleep(wait_seconds)
+    print(f"\nNo se pudo guardar tras {retries} intentos. Cierra el Excel y vuelve a correr `python main.py` (retoma el avance, no se perdio nada).")
+    return False
 
 
 def find_default_input():
@@ -106,9 +124,9 @@ def main():
         procesadas += 1
 
         if procesadas % SAVE_EVERY_N_ROWS == 0:
-            df.to_excel(output_path, index=False)
+            safe_save(df, output_path)
 
-    df.to_excel(output_path, index=False)
+    safe_save(df, output_path)
     print(f"\nListo. {procesadas} canciones procesadas en esta corrida.")
     print(f"Excel guardado en: {output_path}")
     print(f"Letras guardadas en: {LETRAS_DIR}/")

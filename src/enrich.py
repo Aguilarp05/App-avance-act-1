@@ -69,6 +69,10 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
                 result[COL_BPM] = fields.get("bpm")
             if result[COL_MODE] is None:
                 result[COL_MODE] = fields.get("mode")
+            if result[COL_DANCE] is None:
+                result[COL_DANCE] = fields.get("danceability")
+            if result[COL_ACOUSTIC] is None:
+                result[COL_ACOUSTIC] = fields.get("acousticness")
         else:
             notes.append("GetSongBPM: no encontrado")
     else:
