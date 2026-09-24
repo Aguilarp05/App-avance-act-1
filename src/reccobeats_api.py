@@ -10,7 +10,12 @@ Nota importante descubierta probando la API en vivo:
 - Tampoco tolera bien los acentos ("Tití" no encuentra nada, "Titi" si),
   asi que el texto de busqueda se manda sin acentos.
 - /v1/track/{id}/audio-features NO incluye compas (time signature) ni
-  popularity. Esos se buscan via GetSongBPM.
+  popularity.
+- PERO el resultado de /v1/track/search SI trae "popularity" (0-100,
+  igual que Spotify) y "durationMs" directo en cada track - no hacia
+  falta Spotify para Popularity, solo no lo estabamos leyendo. Y
+  /v1/track/{id}/album da "releaseDate" como respaldo del Año cuando
+  iTunes no tiene la cancion.
 """
 import requests
 
@@ -76,6 +81,39 @@ def get_audio_features(track_id: str):
         return r.json()
     except (requests.RequestException, ValueError):
         return None
+
+
+def get_release_year(track_id: str):
+    """GET /v1/track/{id}/album - regresa el anio de lanzamiento (str) o None."""
+    try:
+        r = requests.get(f"{BASE_URL}/track/{track_id}/album", timeout=REQUEST_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+    except (requests.RequestException, ValueError):
+        return None
+
+    albums = data.get("content", [])
+    if not albums:
+        return None
+    release_date = albums[0].get("releaseDate")
+    return release_date[:4] if release_date else None
+
+
+def extract_track_fields(track: dict) -> dict:
+    """Campos que ya vienen en el resultado de search_track (sin llamadas
+    extra): popularity y duracion."""
+    if not track:
+        return {}
+    duration_ms = track.get("durationMs")
+    duration_str = None
+    if duration_ms:
+        total_seconds = int(duration_ms) // 1000
+        minutes, seconds = divmod(total_seconds, 60)
+        duration_str = f"{minutes}:{seconds:02d}"
+    return {
+        "popularity": track.get("popularity"),
+        "duration": duration_str,
+    }
 
 
 def extract_fields(features: dict) -> dict:

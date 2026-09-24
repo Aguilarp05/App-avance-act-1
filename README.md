@@ -5,10 +5,12 @@ canción`) y llena automaticamente el resto de las columnas usando 4 APIs
 gratuitas: **iTunes Search**, **ReccoBeats**, [GetSongBPM](https://getsongbpm.com)
 y **LRCLIB**.
 
-`Popularity` se queda vacio a proposito: se intento con Spotify (tanto
-Client Credentials como login real de usuario via OAuth) y confirmamos
-que ya no expone ese campo para apps nuevas en ninguno de los dos
-casos, asi que no vale la pena mantener esa integracion.
+`Popularity` sale de **ReccoBeats** (su catalogo esta basado en Spotify
+y su buscador ya trae ese campo 0-100 directo, sin llamada extra). Se
+intento primero con la API de Spotify directamente (Client Credentials
+y tambien login real de usuario via OAuth) y confirmamos que ya NO
+expone ese campo para apps nuevas en ninguno de los dos casos - por
+suerte ReccoBeats si lo sigue dando.
 
 > Datos de tempo/tonalidad de cancion proporcionados por [GetSongBPM.com](https://getsongbpm.com).
 
@@ -74,17 +76,30 @@ filas a mano.
 
 | Columna | Fuente | Notas |
 |---|---|---|
-| Año de lanzamiento | iTunes | |
-| Duración | iTunes | formato `M:SS` |
+| Año de lanzamiento | iTunes (respaldo: album de ReccoBeats) | |
+| Duración | iTunes (respaldo: ReccoBeats) | formato `M:SS` |
 | BPM | ReccoBeats (respaldo: GetSongBPM) | |
-| Compás de la canción | **solo GetSongBPM** | ReccoBeats no la tiene |
+| Compás de la canción | **solo GetSongBPM** | ninguna otra fuente gratuita la tiene (ver seccion abajo) |
 | Volumen en db | ReccoBeats | `loudness` |
 | Modo de la canción | ReccoBeats (respaldo: GetSongBPM) | Mayor / Menor |
 | Danceability, Valance, Energy, Acousticiness, Instrumenalness, liveness, speechiness | ReccoBeats | valores 0-1 |
-| Popularity | **ninguna fuente disponible** | queda en blanco a proposito; se intento con Spotify (Client Credentials y OAuth de usuario) y ya no expone ese campo para apps nuevas |
-| Genre | iTunes | |
+| Popularity | **ReccoBeats** | 0-100 (su catalogo es de Spotify y si expone popularity, a diferencia de la API de Spotify directa) |
+| Genre | iTunes | ReccoBeats no expone genero |
 | Lyrics | LRCLIB | letra completa se guarda en `letras/`, aqui solo queda la ruta + primera linea |
 | Lenguage | Detectado del texto de la letra (libreria `langdetect`) | ninguna API da idioma directo |
+
+### Sobre Compás de la canción (cobertura limitada)
+
+GetSongBPM es la unica fuente gratuita conocida que da compas como
+dato directo, y su catalogo es bastante mas chico que el de Spotify/
+Apple Music, asi que va a quedar vacio en la mayoria de las filas. Se
+investigaron alternativas (Essentia/librosa para estimarlo del audio,
+AcousticBrainz, APIs de pago) y ninguna es viable gratis y confiable
+para este proyecto. Para las canciones que te interesen en particular,
+se puede buscar a mano en:
+- **Musicnotes.com** (la ficha de la partitura trae "Time Signature" sin comprar)
+- **MuseScore.com** (partituras subidas por usuarios, el compas sale al inicio)
+- Buscar en Google: `"cancion" "artista" time signature`
 
 ## Estructura
 

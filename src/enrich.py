@@ -63,6 +63,13 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
             artists_str = ", ".join(a.get("name", "") for a in recco_track.get("artists", []))
             search_artist = artists_str or artist
             search_song = recco_track.get("trackTitle") or song
+        # popularity y duracion ya vienen en el resultado de search, sin
+        # llamada extra
+        track_fields = reccobeats_api.extract_track_fields(recco_track)
+        result[COL_POPULARITY] = track_fields.get("popularity")
+        if result[COL_DURATION] is None:
+            result[COL_DURATION] = track_fields.get("duration")
+
         features = reccobeats_api.get_audio_features(recco_track["id"])
         time.sleep(SLEEP_BETWEEN_CALLS)
         fields = reccobeats_api.extract_fields(features)
@@ -76,6 +83,15 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
         result[COL_INSTRUMENTAL] = fields.get("instrumentalness")
         result[COL_LIVENESS] = fields.get("liveness")
         result[COL_SPEECHINESS] = fields.get("speechiness")
+
+        # Año de respaldo cuando iTunes no tiene la cancion (llamada extra
+        # solo cuando de verdad hace falta)
+        if result[COL_YEAR] is None:
+            year = reccobeats_api.get_release_year(recco_track["id"])
+            time.sleep(SLEEP_BETWEEN_CALLS)
+            if year:
+                result[COL_YEAR] = year
+
         if recco_score < 80:
             notes.append(f"ReccoBeats: match dudoso ({recco_score:.0f}%)")
     else:
@@ -123,11 +139,8 @@ def enrich_song(artist: str, song: str, row_index: int, letras_dir: str) -> dict
     else:
         notes.append("LRCLIB: letra no encontrada")
 
-    # Popularity: se probo Spotify (Client Credentials Y login de usuario
-    # real via OAuth) y confirmamos que ya no expone ese campo para apps
-    # nuevas en ninguno de los dos casos. Ninguna de las 4 APIs originales
-    # lo tiene tampoco. Se deja en blanco a proposito.
-    notes.append("Popularity: no disponible (Spotify ya no expone ese campo para apps nuevas)")
+    if result[COL_POPULARITY] is None:
+        notes.append("Popularity: no disponible (cancion no encontrada en ReccoBeats)")
 
     result[COL_NOTES] = " | ".join(notes)
     return result
