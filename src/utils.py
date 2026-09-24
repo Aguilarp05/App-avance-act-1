@@ -54,29 +54,41 @@ def similarity(a: str, b: str) -> float:
     return fuzz.WRatio(a, b)
 
 
-# Si el artista del mejor candidato no llega a este parecido, se
-# considera que NO es la misma cancion (aunque el titulo si matchee) y
-# se descarta en vez de rellenar datos de otro artista homonimo.
-# Calibrado con casos reales: 'Morat' vs 'Morat & Silvestre Dangond' ~90
-# (se acepta) contra 'Humbe' vs 'Chino & Nacho' ~26 (se rechaza).
-MIN_ARTIST_SCORE = 45
+# Pisos minimos de parecido para aceptar un candidato. Se exigen los
+# DOS (artista Y titulo) por separado -- no basta con que el promedio
+# salga alto. Sin esto pasaban cosas como:
+#   - iTunes: "Mac Miller - 2009" no estaba en los resultados, pero SI
+#     "Mac Miller - Circles" (artista=100%, titulo=0%); el promedio
+#     (50%) se aceptaba con solo la nota de "dudoso", mostrando la
+#     duracion de la cancion equivocada.
+#   - ReccoBeats: "Mac Miller" vs "Hate Gallery" (artista totalmente
+#     distinto) dio 54.5% de parecido por pura coincidencia de letras,
+#     pasando el filtro viejo de 45%.
+# Calibrado con casos reales de esta sesion:
+#   - 'Morat' vs 'Morat & Silvestre Dangond' (featuring real) -> 90
+#   - 'Humbe' vs 'Chino & Nacho' (artista equivocado) -> 26
+#   - 'Mac Miller' vs 'Hate Gallery' (coincidencia de letras) -> 54.5
+MIN_ARTIST_SCORE = 60
+MIN_SONG_SCORE = 50
 
 
 def best_match(target_artist: str, target_song: str, candidates, get_artist, get_song):
     """
     Recibe una lista de candidatos y funciones para extraer artista/cancion
     de cada uno. Regresa (mejor_candidato, score) combinando el parecido
-    de artista + cancion, o (None, 0) si ningun candidato tiene un artista
-    lo bastante parecido (evita quedarse con una cancion de otro artista
-    que solo comparte titulo).
+    de artista + cancion, o (None, 0) si ningun candidato tiene AMBOS
+    (artista y titulo) lo bastante parecidos -- evita quedarse con otra
+    cancion del mismo artista, o con la cancion correcta de otro artista.
     """
     best = None
     best_score = -1.0
     for c in candidates:
         s_artist = similarity(target_artist, get_artist(c))
         if s_artist < MIN_ARTIST_SCORE:
-            continue  # otro artista homonimo en el titulo, no es la cancion
+            continue  # otro artista, no es la cancion
         s_song = similarity(target_song, get_song(c))
+        if s_song < MIN_SONG_SCORE:
+            continue  # mismo artista pero otra cancion
         score = (s_artist * 0.5) + (s_song * 0.5)
         if score > best_score:
             best_score = score
